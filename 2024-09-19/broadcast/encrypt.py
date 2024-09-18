@@ -5,7 +5,7 @@ import math
 
 def pad(m: int, max: int) -> int:
     """
-    Don't worry too much about what this function does.
+    Don't worry too much about what this function does. Understanding this function is not the point of the challenge.
     This function adds randomized padding to the plaintext m.
     
     Implementation explanation:
