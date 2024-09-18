@@ -1,4 +1,4 @@
-import os
+import sys
 from Crypto.Util.number import getStrongPrime
 from Crypto.Random import get_random_bytes
 import math
@@ -25,7 +25,7 @@ def pad(m: int, max: int) -> int:
     m_pad = m * 256**num_padding_bytes + padding
     return m_pad
 
-flag = os.environ["FLAG"] # This is crypto, not pwn
+flag = sys.argv[1] # This is crypto, not pwn
 flag = flag.encode()
 
 e = 3
