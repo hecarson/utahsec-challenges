@@ -3,6 +3,8 @@ Author: Carson He
 
 I forgor the difference between CTR and CBC 💀
 
+`nc 52.9.72.6 35198`
+
 This challenge is intended to be difficult, so few hints are given.
 
 <details>
