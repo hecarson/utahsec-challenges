@@ -7,8 +7,7 @@ REQUEST_LIMIT = 30_000
 flag = os.environ["FLAG"]
 flag = flag.encode()
 message = \
-    b"AES is unbreakable! My secret is safe:" + \
-    b"\xff" * 10
+    b"AES is unbreakable! My secret is safe:" + b"\xff" * 10
 for c in flag:
     message += b"\x00" * 15 + bytes([c])
 
