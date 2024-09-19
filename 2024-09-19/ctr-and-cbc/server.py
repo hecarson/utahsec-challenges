@@ -1,12 +1,17 @@
 from socketserver import ThreadingTCPServer, StreamRequestHandler
 import subprocess
 from argparse import ArgumentParser
+import os
 
 SUBPROCESS_TIMEOUT = 60 * 60 # 1 hour
 
 class ChalTCPHandler(StreamRequestHandler):
     def handle(self):
         subprocess.run(["python", "chal.py"], stdin=self.rfile, stdout=self.wfile, timeout=SUBPROCESS_TIMEOUT)
+
+if "FLAG" not in os.environ:
+    print("FLAG environment variable not set!")
+    exit()
 
 arg_parser = ArgumentParser()
 arg_parser.add_argument("-a", default="0.0.0.0") # Listening address
