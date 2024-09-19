@@ -38,3 +38,5 @@ while num_requests < REQUEST_LIMIT:
     except ValueError:
         print("Error")
         continue
+    except EOFError:
+        exit()
