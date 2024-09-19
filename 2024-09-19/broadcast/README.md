@@ -1,4 +1,4 @@
-# Broadcast | Cryptography | UtahSec 2024-09-19
+# Broadcast | Cryptography | Medium difficulty | UtahSec 2024-09-19
 Author: Carson He
 
 I have an evil message to broadcast to my 3 evil friends... but you'll never know the secret! You'll never get through my 4096-bit encryption! HAHAHA!!!
