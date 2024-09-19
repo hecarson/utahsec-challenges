@@ -25,7 +25,7 @@ def pad(m: int, max: int) -> int:
     m_pad = m * 256**num_padding_bytes + padding
     return m_pad
 
-flag = sys.argv[1] # This is crypto, not pwn
+flag = sys.argv[1]
 flag = flag.encode()
 
 e = 3
