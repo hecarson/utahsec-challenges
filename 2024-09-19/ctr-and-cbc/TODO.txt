@@ -1,0 +1,1 @@
+Finish converting chal.py to use TCP IO instead of stdin/stdout
