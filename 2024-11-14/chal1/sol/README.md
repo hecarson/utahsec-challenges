@@ -214,7 +214,7 @@ Local exec file:
 <... omitted for brevity>
 ```
 
-The address of `name`, which is 0x80a0, is in the .bss section of the binary. In assembly programming, the .bss section is used to store uninitialized global variables. However, what is even more interesting is that the .bss section is right next to the .got.plt section. The global offset table (GOT) is used in dynamic linking to resolve addresses of functions in shared libraries such as libc.
+The address of `name`, which is 0x80a0, is in the .bss section of the binary. In assembly programming, the .bss section is used to store uninitialized global variables. However, what is even more interesting is that the .bss section is right next to the .got.plt section. The global offset table (GOT) is used in dynamic linking and stores resolved addresses of functions in shared libraries such as libc.
 
 > [!NOTE]
 > Further reading about the GOT and PLT in dynamic linking: [https://systemoverlord.com/2017/03/19/got-and-plt-for-pwning.html](https://systemoverlord.com/2017/03/19/got-and-plt-for-pwning.html)
