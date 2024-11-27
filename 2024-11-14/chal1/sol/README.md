@@ -639,4 +639,4 @@ We have our hard-earned flag!
 
 ## Conclusion
 
-I hope that this writeup has helped you understand how to write a ROP exploit for binaries vulnerable to stack buffer overflows. See if you can use the skills you have learned from `chal1` to solve `chal2`!
+I hope that this writeup has helped you understand how to write a ROP exploit for binaries vulnerable to stack buffer overflows. The complete exploit script is at [sol.py](sol.py). See if you can use the skills you have learned from `chal1` to solve `chal2`!
