@@ -6,6 +6,7 @@
 * Python with pwntools
 * GDB with GEF
 * ROPgadget (should be installed with pwntools)
+* patchelf
 
 ## Initial analysis
 
@@ -61,7 +62,16 @@ $ pwn checksec chal1
     Stripped:   No
 ```
 
-Let's also look at the decompilation of some of the functions using Ghidra.
+`patchelf` also shows us that the binary has already been patched to use the provided libc and ld-linux.so, instead of those provided by the local system.
+
+```
+$ patchelf --print-rpath chal1
+.
+$ patchelf --print-interpreter chal1
+ld-linux-x86-64.so.2
+```
+
+Let's look at the decompilation of some of the functions using Ghidra.
 
 ```c
 void disable_buffers(void)
@@ -71,9 +81,9 @@ void disable_buffers(void)
   setbuf(stderr,(char *)0x0);
   return;
 }
+```
 
-...
-
+```c
 undefined8 main(void)
 {
   char local_98 [0x40];
