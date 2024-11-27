@@ -102,8 +102,6 @@ undefined8 main(void)
 ```
 
 ```
-...
-
                              DAT_00102056                                    XREF[2]:     main:00101234(*), 
                                                                                           main:0010123b(*)  
         00102056 25              ??         25h    %
@@ -117,8 +115,6 @@ undefined8 main(void)
         00102083 25              ??         25h    %
         00102084 75              ??         75h    u
         00102085 00              ??         00h
-
-...
 ```
 
 We can ignore the `disable_buffers` function. Disabling the standard IO stream buffers makes IO with the process easier and is very common in CTF pwn challenges. What is very interesting is the use of `gets` in `main`, which makes `main` vulnerable because `gets` writes to a buffer without checking the bound of the buffer. `local_98` is a stack buffer, so we can use `gets` to achieve a stack buffer overflow, overwrite the return address of `main`, and hijack the execution of the program.
@@ -337,8 +333,6 @@ strncpy(local_58,name + local_c,(ulong)local_10);
 ```
 
 ```
-...
-
                              DAT_00102056                                    XREF[2]:     main:00101234(*), 
                                                                                           main:0010123b(*)  
         00102056 25              ??         25h    %
@@ -606,6 +600,9 @@ $ whoami
 carson
 $ 
 ```
+
+> [!TIP]
+> Improper stack alignment can be the cause of a ROP exploit not working when it would otherwise be a working exploit.
 
 ## Getting the flag
 
