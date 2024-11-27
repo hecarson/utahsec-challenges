@@ -62,7 +62,7 @@ $ pwn checksec chal1
     Stripped:   No
 ```
 
-`patchelf` also shows us that the binary has already been patched to use the provided libc and ld-linux.so, instead of those provided by the local system.
+`patchelf` also shows us that the binary has already been patched to use the provided libc and ld-linux.so instead of those provided by the local system.
 
 ```
 $ patchelf --print-rpath chal1
@@ -456,7 +456,7 @@ ROP chain generation
 ...
 ```
 
-The gadget that we are most interested in is the `pop rdi ; ret` gadget at offset 0x2a3e5. To set the RDI register to whatever we want, we can push the set RDI gadget to our ROP chain and then push the 8 bytes that we want to put in RDI. We will use this to set RDI to point to the `/bin/sh` string.
+The gadget that we are most interested in is the `pop rdi ; ret` gadget at offset 0x2a3e5. To set the RDI register to whatever we want, we can push the set RDI gadget to our ROP chain and then push an 8 byte value that we want to put in RDI. We will use this to set RDI to point to the `/bin/sh` string.
 
 It seems like we are all ready to make our exploit! (There's a small catch, but more on that later.) Our payload to `gets` needs to first have padding to fill the stack until the return address, and then have our ROP chain. We can look at the disassembly to quickly determine how many bytes of padding we need.
 
@@ -565,7 +565,7 @@ $cs: 0x33 $ss: 0x2b $ds: 0x00 $es: 0x00 $fs: 0x00 $gs: 0x00
 > [!NOTE]
 > The addresses you see in GDB when launched from pwntools using `gdb.debug` are randomized.
 
-The fact that the MOVAPS instruction has RSP as an operand hints at the problem. In the System V x86-64 ABI, before each function call, the stack must be 16-byte aligned; that is, RSP must be a multiple of 16. The CALL instruction pushes an 8-byte return address on the stack, so after a CALL instruction in the callee function, RSP is offset by 8 (RSP mod 16 = 8). If we step through each instruction in our ROP chain, we see that when we first reach `system`, RSP is a multiple of 16, which we can easily tell by seeing that the last hex digit is 0. This indicates incorrect stack alignment.
+The fact that the MOVAPS instruction has RSP as an operand hints at the problem. In the System V x86-64 ABI, before each function call, the stack must be 16-byte aligned; that is, RSP must be a multiple of 16. The CALL instruction pushes an 8-byte return address on the stack, so in the callee function, RSP is offset by 8 (RSP mod 16 = 8). If we step through each instruction in our ROP chain, we see that when we first reach `system`, RSP is a multiple of 16, which we can easily tell by seeing that the last hex digit is 0. This indicates incorrect stack alignment because RSP should be offset by 8.
 
 To fix the stack alignment, one simple solution is to include a RET gadget in our ROP chain right before the call to `system`. The RET instruction pops an 8-byte return address from the stack, which increments RSP by 8. We can simply use `objdump` to disassemble libc and quickly find the offset of a RET instruction.
 
