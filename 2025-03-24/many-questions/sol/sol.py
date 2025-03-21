@@ -1,6 +1,6 @@
 from pwn import * # type: ignore
 
-ADDRESS = "54.68.96.131"
+ADDRESS = ""
 PORT = 51478
 
 BLOCK_SIZE = 16
