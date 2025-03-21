@@ -56,8 +56,8 @@ def find_c1_byte(byte_pos: int, c1: bytearray, c2: bytes, conn: tube) -> int:
 
 
 
-#with process(["python", "chal.py"]) as conn:
-with remote(ADDRESS, PORT) as conn:
+with process(["python", "chal.py"]) as conn:
+#with remote(ADDRESS, PORT) as conn:
     # SECRET ANNOUNCEMENT:
     print(conn.recvline())
     line = conn.recvline(keepends=False)

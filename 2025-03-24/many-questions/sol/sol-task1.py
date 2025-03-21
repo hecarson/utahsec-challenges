@@ -20,9 +20,9 @@ def is_input_produce_correct_padding(inp: bytes | bytearray, conn: tube) -> bool
 
 
 # Test exploit against local challenge process
-#conn = process(["python", "chal.py"])
+conn = process(["python", "chal.py"])
 # Run exploit against remote challenge server to get the true flag
-conn = remote(ADDRESS, PORT)
+#conn = remote(ADDRESS, PORT)
 
 with conn:
     # SECRET ANNOUNCEMENT:
