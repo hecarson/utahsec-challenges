@@ -1,7 +1,7 @@
 # many-questions | Cryptography | UtahSec 2024-03-24
 Author: Carson He
 
-`nc 54.68.96.131 51478`
+`nc <IP address> 51478`
 
 ## Introduction
 
