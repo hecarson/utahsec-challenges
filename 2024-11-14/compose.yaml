@@ -1,0 +1,12 @@
+services:
+  chal1:
+    build: chal1
+    ports:
+      - 13000:5000
+    privileged: true
+
+  chal2:
+    build: chal2
+    ports:
+      - 13001:5000
+    privileged: true
