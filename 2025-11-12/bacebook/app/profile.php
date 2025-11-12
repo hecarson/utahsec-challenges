@@ -12,7 +12,7 @@ if (!$login) {
 $username = $_SESSION["username"];
 $error = "";
 $file_dir = "static/uploads/" . $username . "/";
-if (!file_exists($file_dir)) mkdir($file_dir);
+if (!file_exists($file_dir)) mkdir($file_dir, recursive: true);
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     // Status form handler
