@@ -1,0 +1,28 @@
+<!doctype html>
+
+<head>
+    <meta charset="utf-8">
+    <title>{% block title %}{% endblock %}</title>
+    <link rel="stylesheet" href="/static/main.css">
+</head>
+
+<body>
+    <div class="page">
+        <nav>
+            <a href="/">bacebook</a>
+            <div class="nav-links">
+                <a href="/about">about</a>
+                {% if session.user is eq "admin" %}
+                <a href="/admin">admin</a>
+                <a href="/logout">logout</a>
+                {% else %}
+                <a href="/login">login</a>
+                {% endif %}
+            </div>
+        </nav>
+
+        <main>
+            {% block main %}{% endblock %}
+        </main>
+    </div>
+</body>

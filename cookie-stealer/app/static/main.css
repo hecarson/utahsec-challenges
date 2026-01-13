@@ -1,0 +1,39 @@
+body {
+    background-color: #d8d0d0;
+    margin: 0;
+}
+
+.page {
+    max-width: 70rem;
+    margin: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+nav {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 1rem;
+    font-size: 2rem;
+    background-color: #a8a0a0;
+}
+
+.nav-links {
+    display: flex;
+    flex-direction: row;
+    gap: 2rem;
+}
+
+main {
+    padding: 1rem;
+}
+
+.error {
+    color: red;
+}
+
+.success {
+    color: green;
+}

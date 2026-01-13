@@ -1,0 +1,6 @@
+flask
+passlib
+bcrypt==4.0.1
+gunicorn
+selenium
+requests

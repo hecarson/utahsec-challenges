@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}tickets{% endblock %}
+
+{% block main %}
+
+<h1>submit a ticket</h1>
+
+<p>please write your support request in the following form. an admin will read your ticket as soon as possible. responses are not guaranteed. maybe I'll respond if you manage to steal my cookie...</p>
+
+<form action="/tickets" method="post">
+    <div>
+        <textarea id="ticket" name="ticket" type="text" autofocus rows="5" cols="80"></textarea>
+    </div>
+    <button type="submit">submit</button>
+    {% if success %}
+    <p class="success">your ticket has been submitted.</p>
+    {% endif %}
+    {% if error %}
+    <p class="error">{{error}}</p>
+    {% endif %}
+</form>
+
+
+{% endblock %}
