@@ -148,7 +148,7 @@ Open the file with your web browser. You should see a popup window with the mess
 > [!NOTE]
 > The `&quot;` parts are HTML character entities for encoding the `"` character. `&quot;pwned!&quot;` decodes to `"pwned!"`. We cannot write `"` directly because it would terminate the existing string starting at `src="`.
 
-Now, let's build a payload that put the following in `test.html`, and modify it to make a request to your Request Catcher subdomain. 
+Now, let's build a payload that sends a request to Request Catcher. Put the following in `test.html`, and modify it to make a request to your Request Catcher subdomain. 
 <details>
 <summary>Spoilers for the previous section (click to reveal)</summary>
 
