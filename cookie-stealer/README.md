@@ -146,7 +146,7 @@ Make an HTML file named `test.html` or similar and put the following content in 
 Open the file with your web browser. You should see a popup window with the message "pwned!".
 
 > [!NOTE]
-> The `&quot;` parts are HTML character entities for encoding the `"` character. `&quot;pwned!&quot;` decodes to `"pwned!"`. We cannot write `"` directly because it would terminate the existing string starting at `src="`.
+> The `&quot;` parts are HTML character references for encoding the `"` character. `&quot;pwned!&quot;` decodes to `"pwned!"`. We cannot write `"` directly because it would terminate the existing string starting at `src="`.
 
 Now, let's build a payload that sends a request to Request Catcher. Put the following in `test.html`, and modify it to make a request to your Request Catcher subdomain. 
 <details>
