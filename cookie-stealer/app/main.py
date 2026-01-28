@@ -93,7 +93,7 @@ def tickets():
 
         ticket = request.form["ticket"]
 
-        # Prevent any possible XSS attack
+        # Prevent any possible XSS attack, 100% foolproof
         xss_tag_blacklist = ["<script", "</script>", "<img", "</img>"]
         for tag in xss_tag_blacklist:
             if tag in ticket.lower():
