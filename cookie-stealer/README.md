@@ -98,6 +98,7 @@ Also notice that the ticket reader in [read_tickets.py](app/read_tickets.py) use
 
 > [!IMPORTANT]
 > By default, the `Content-Type` header on Flask reponses will be `text/html`. This means that ticket content will be rendered as HTML by the headless browser, and any JavaScript in the HTML will be executed!
+
 </details>
 
 ## Exploiting the XSS vulnerability
