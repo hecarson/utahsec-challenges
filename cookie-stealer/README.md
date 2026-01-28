@@ -173,7 +173,7 @@ One simple way to exfiltrate the cookies is to simply concatenate `document.cook
 ```
 </details>
 
-Navigate to the ticket page, copy your payload into the input box, and submit the ticket. Check your Request Catcher. You should see an admin cookie in a few seconds!
+Navigate to the ticket page, copy and paste your payload into the input box, and submit the ticket. Check your Request Catcher. You should see an admin cookie in a few seconds!
 
 ## Logging in as admin
 
