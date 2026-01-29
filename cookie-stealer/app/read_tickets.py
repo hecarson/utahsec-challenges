@@ -31,18 +31,18 @@ def read_tickets():
         return
     ticket_ids = res.json()
 
+    options = webdriver.ChromeOptions()
+    options.add_argument("--headless")
+    options.add_argument("--no-sandbox")
+    driver = webdriver.Chrome(options=options)
+    driver.get(BASE_URL + "/")
+    driver.add_cookie({"name": "session", "value": session_cookie})
+
     for ticket_id in ticket_ids:
         try:
             # Save ticket screenshot
-            options = webdriver.ChromeOptions()
-            options.add_argument("--headless")
-            options.add_argument("--no-sandbox")
-            driver = webdriver.Chrome(options=options)
-            driver.get(BASE_URL + "/")
-            driver.add_cookie({"name": "session", "value": session_cookie})
             driver.get(BASE_URL + f"/admin/tickets/{ticket_id}")
             driver.save_screenshot(f"tickets/{ticket_id}.png")
-            driver.quit()
         except Exception as e:
             log(e)
 
@@ -50,6 +50,8 @@ def read_tickets():
         res = requests.delete(BASE_URL + f"/admin/tickets/{ticket_id}", cookies={"session": session_cookie})
         if not res.ok:
             log(f"Delete failed, ticket id {ticket_id}")
+
+    driver.quit()
 
 
 
