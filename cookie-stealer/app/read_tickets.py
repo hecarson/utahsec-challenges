@@ -42,6 +42,7 @@ def read_tickets():
             driver.add_cookie({"name": "session", "value": session_cookie})
             driver.get(BASE_URL + f"/admin/tickets/{ticket_id}")
             driver.save_screenshot(f"tickets/{ticket_id}.png")
+            driver.quit()
         except Exception as e:
             log(e)
 
