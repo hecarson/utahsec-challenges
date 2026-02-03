@@ -40,8 +40,10 @@ def read_tickets():
 
     for ticket_id in ticket_ids:
         try:
-            # Save ticket screenshot
             driver.get(BASE_URL + f"/admin/tickets/{ticket_id}")
+            # Wait for page to load
+            time.sleep(0.5)
+            # Save ticket screenshot
             driver.save_screenshot(f"tickets/{ticket_id}.png")
         except Exception as e:
             log(e)
