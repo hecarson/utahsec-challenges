@@ -1,0 +1,20 @@
+Windows 7 setup:
+* https://archive.org/details/Windows7-iso
+* 2 GB RAM
+* 15 GB storage
+* Control Panel -> Network and Internet -> Network and Sharing Center -> Change advanced sharing settings -> Turn on file and printer sharing
+* Firewall inbound rule to allow all inbound ports
+* For Windows Server:
+    * Install with Desktop experience for setup convenience
+    * In Group Policy Editor -> Computer Configuration\Windows Settings\Security Settings\Local Policies\Security Options -> "Network access: Shares that can be accessed anonymously":
+        * Enter "\" (no quotes)
+        * https://github.com/rapid7/metasploit-framework/issues/11691#issuecomment-861400993
+
+Scanning for vulnerability:
+* Nmap: smb-vuln-ms17-010.nse
+    * nmap 192.168.122.65 -Pn -p 445 --script "smb-vuln-ms17-010"
+* Metasploit: auxiliary/scanner/smb/smb_ms17_010
+
+https://support.microsoft.com/en-us/topic/how-to-verify-that-ms17-010-is-installed-f55d3f13-7a9c-688c-260b-477d0ec9f2c8
+
+Exploit: exploit/windows/smb/ms17_010_eternalblue
